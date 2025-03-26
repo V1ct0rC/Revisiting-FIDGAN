@@ -1,3 +1,8 @@
+# Datasets
+*.npy
+datasets/wadi/WADI.A1_9 Oct 2017
+datasets/swat/SWaT.A4 & A5_Jul 2019
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
