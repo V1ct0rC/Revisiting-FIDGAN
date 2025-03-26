@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -74,9 +75,66 @@ class GAN(nn.Module):
         real_pred = self.discriminator(x)
         return fake_x, fake_pred, real_pred
     
-    def fit(self, num_epochs=100, batch_size=1000):
-        # TODO: Implement training loop
-        pass
+    def fit(self, data_loader, seq_len, num_epochs=100, batch_size=1000, d_optimizer=None, g_optimizer=None, d_lr=0.001, g_lr=0.0002, criterion=None):
+        if d_optimizer is None:
+            d_optimizer = optim.SGD(self.discriminator.parameters(), lr=d_lr)
+        if g_optimizer is None:    
+            g_optimizer = optim.Adam(self.generator.parameters(), lr=g_lr)
+
+        if criterion is None:
+            criterion = nn.BCELoss()
+
+        for epoch in range(num_epochs):
+            for batch_idx, real_data in enumerate(data_loader):
+                real_data = real_data.to(self.device)
+                batch_size = real_data.size(0)
+
+                # ---------------------
+                #  Train Discriminator
+                # ---------------------
+                d_optimizer.zero_grad()
+
+                # Generate noise
+                z = torch.randn(batch_size, seq_len, self.generator.latent_dim, device=self.device)
+
+                # Get discriminator outputs
+                fake_data = self.generator(z)
+                real_pred = self.discriminator(real_data)
+                fake_pred = self.discriminator(fake_data.detach())
+
+                # Calculate losses
+                real_loss = criterion(real_pred, torch.ones_like(real_pred))
+                fake_loss = criterion(fake_pred, torch.zeros_like(fake_pred))
+                d_loss = (real_loss + fake_loss) / 2
+
+                # Backpropagation
+                d_loss.backward()
+                d_optimizer.step()
+
+                # -----------------
+                #  Train Generator
+                # -----------------
+                g_optimizer.zero_grad()
+
+                # Generate new fake data
+                fake_data = self.generator(z)
+                fake_pred = self.discriminator(fake_data)
+
+                # Calculate generator loss (flipped labels)
+                g_loss = criterion(fake_pred, torch.ones_like(fake_pred))
+
+                # Backpropagation
+                g_loss.backward()
+                g_optimizer.step()
+
+                # Print progress
+                if batch_idx % 50 == 0:
+                    print(
+                        f"[Epoch {epoch+1}/{num_epochs}] "
+                        f"[Batch {batch_idx}/{len(data_loader)}] "
+                        f"D Loss: {d_loss.item():.4f} "
+                        f"G Loss: {g_loss.item():.4f}"
+                    )
 
 
 if __name__ == "__main__":
