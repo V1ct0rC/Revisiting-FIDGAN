@@ -24,7 +24,9 @@ if __name__ == "__main__":
     train_data_path = settings["train_data_path"]
     valid_data_path = settings["valid_data_path"]
 
-    num_epochs = settings["num_epochs"]
+    num_epochs = settings["num_epochs_gan"]
+    num_epochs_autoencoder = settings["num_epochs_autoencoder"]
+
     seq_length = settings["seq_length"]
     seq_step = settings["seq_step"]
     num_signals = settings["num_signals"]
@@ -35,41 +37,41 @@ if __name__ == "__main__":
 
     learning_rate_gan = settings["learning_rate_gan"]
     learning_rate_autoencoder = settings["learning_rate_autoencoder"]
+
+    base_dir_exp = "experiments"
+    run_name = (
+        f"latent_{latent_dim}_hidden_{hidden_units}_"
+        f"layers_{num_layers}_sign_{num_signals}_"
+        f"epochs_{num_epochs}_lr_{learning_rate_gan}"
+    )
+    save_dir_run = os.path.join(base_dir_exp, run_name)
+    os.makedirs(save_dir_run, exist_ok=True)
     
-    # # Load the data -------------------------------------------------------------------------------
-    # print("-"*100 + "\n" + "Loading data")
-    # sequences_train = load_dataset(
-    #     data_path=train_data_path,
-    #     seq_length=seq_length,
-    #     seq_step=seq_step,
-    #     num_signals=num_signals
-    # )
+    # Load the data -------------------------------------------------------------------------------
+    print("-"*100 + "\n" + "Loading data")
+    sequences_train = load_dataset(
+        data_path=train_data_path,
+        seq_length=seq_length,
+        seq_step=seq_step,
+        num_signals=num_signals
+    )
 
-    # sequences_train_tensor = torch.tensor(sequences_train, dtype=torch.float32)
-    # train_dataset = TensorDataset(sequences_train_tensor)
+    sequences_train_tensor = torch.tensor(sequences_train, dtype=torch.float32)
+    train_dataset = TensorDataset(sequences_train_tensor)
 
-    # train_loader = DataLoader(
-    #     train_dataset,
-    #     batch_size=batch_size,
-    #     shuffle=True,
-    #     drop_last=True
-    # )
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=True
+    )
 
     # # Initialize and train the GAN model ----------------------------------------------------------
     # print("-"*100 + "\n" + "Training GAN")
 
-    # base_dir_gan = "experiments/gan"
-    # run_name_gan = (
-    #     f"latent_{latent_dim}_hidden_{hidden_units}_"
-    #     f"layers_{num_layers}_sign_{num_signals}_"
-    #     f"epochs_{num_epochs}_lr_{learning_rate_gan}"
-    # )
-    # save_dir_gan = os.path.join(base_dir_gan, run_name_gan)
-    # os.makedirs(save_dir_gan, exist_ok=True)
-
     # gan = AnomalyDetectionGAN(
     #     latent_dim=latent_dim, hidden_units=hidden_units, num_layers=num_layers,
-    #     input_dim=num_signals, output_dim=num_signals, save_dir=save_dir_gan,
+    #     input_dim=num_signals, output_dim=num_signals, save_dir=save_dir_run,
     #     device=device
     # ).to(device)
     # gan.fit(
@@ -77,51 +79,50 @@ if __name__ == "__main__":
     #     num_epochs=num_epochs, d_lr=learning_rate_gan, g_lr=learning_rate_gan
     # )
 
-    # Load the validation data --------------------------------------------------------------------
-    print("-"*100 + "\n" + "Loading validation data")
+    # # Load the validation data --------------------------------------------------------------------
+    # print("-"*100 + "\n" + "Loading validation data")
 
-    sequences_valid, labels_valid = load_labeled_dataset(
-        data_path=valid_data_path,
-        seq_length=seq_length,
-        seq_step=seq_step,
-        num_signals=num_signals
-    )
+    # sequences_valid, labels_valid = load_labeled_dataset(
+    #     data_path=valid_data_path,
+    #     seq_length=seq_length,
+    #     seq_step=seq_step,
+    #     num_signals=num_signals
+    # )
 
-    sequences_valid_tensor = torch.tensor(sequences_valid, dtype=torch.float32)
-    labels_valid_tensor = torch.tensor(labels_valid, dtype=torch.float32)
-    valid_dataset = TensorDataset(sequences_valid_tensor, labels_valid_tensor)
+    # sequences_valid_tensor = torch.tensor(sequences_valid, dtype=torch.float32)
+    # labels_valid_tensor = torch.tensor(labels_valid, dtype=torch.float32)
+    # valid_dataset = TensorDataset(sequences_valid_tensor, labels_valid_tensor)
 
-    valid_loader = DataLoader(
-        valid_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        drop_last=True
-    )
+    # valid_loader = DataLoader(
+    #     valid_dataset,
+    #     batch_size=batch_size,
+    #     shuffle=True,
+    #     drop_last=True
+    # )
 
-    # Evaluate the GAN models ---------------------------------------------------------------------
-    print("-"*100 + "\n" + "Evaluating GAN")
-
-    base_dir_gan = "experiments/gan"
-    run_name_gan = (
-        f"latent_{latent_dim}_hidden_{hidden_units}_"
-        f"layers_{num_layers}_sign_{num_signals}_"
-        f"epochs_{num_epochs}_lr_{learning_rate_gan}"
-    )
-    save_dir_gan = os.path.join(base_dir_gan, run_name_gan)
+    # # Evaluate the GAN models ---------------------------------------------------------------------
+    # print("-"*100 + "\n" + "Evaluating GAN")
     
-    auc_scores = []
-    for epoch in range(num_epochs):
-        gan = AnomalyDetectionGAN(
-            latent_dim=latent_dim, hidden_units=hidden_units, num_layers=num_layers,
-            input_dim=num_signals, output_dim=num_signals, save_dir=save_dir_gan,
-            device=device, load_model_index=epoch
-        ).to(device)
-        auc = gan.evaluate(valid_loader)
-        auc_scores.append(auc)
+    # auc_scores = []
+    # for epoch in range(num_epochs):
+    #     gan = AnomalyDetectionGAN(
+    #         latent_dim=latent_dim, hidden_units=hidden_units, num_layers=num_layers,
+    #         input_dim=num_signals, output_dim=num_signals, save_dir=save_dir_run,
+    #         device=device, load_model_index=epoch
+    #     ).to(device)
+    #     auc = gan.evaluate(valid_loader)
+    #     auc_scores.append(auc)
 
-    best_epoch = np.argmax(auc_scores)
+    # best_gan_epopch = np.argmax(auc_scores)
 
-    # # Initialize and train the autoencoder model --------------------------------------------------
-    # print("-"*100 + "\n" + "Training Autoencoder")
-    # autoencoder = Autoencoder()
-    # autoencoder.fit()
+    best_gan_epopch = 0
+
+    # Initialize and train the autoencoder model --------------------------------------------------
+    print("-"*100 + "\n" + "Training Autoencoder")
+    autoencoder = Autoencoder(
+        input_dim=num_signals, hidden_units=hidden_units, num_layers=num_layers,
+        latent_dim=latent_dim, save_dir=save_dir_run, device=device, load_model_index=best_gan_epopch
+    ).to(device)
+    autoencoder.fit(
+        train_loader, num_epochs=num_epochs_autoencoder, lr=learning_rate_autoencoder
+    )

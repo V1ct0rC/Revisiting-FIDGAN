@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -82,10 +83,12 @@ class AnomalyDetectionGAN(nn.Module):
         self.generator = Generator(latent_dim, hidden_units, num_layers, output_dim, device=self.device)
         self.discriminator = Discriminator(input_dim, hidden_units, num_layers, device=self.device)
 
+        os.makedirs(f"{save_dir}/gan", exist_ok=True)
+
         # Load pre-trained model if specified
         if load_model_index is not None:
-            self.generator.load_state_dict(torch.load(f"{save_dir}/generator_epoch_{load_model_index}.pth"))
-            self.discriminator.load_state_dict(torch.load(f"{save_dir}/discriminator_epoch_{load_model_index}.pth"))
+            self.generator.load_state_dict(torch.load(f"{save_dir}/gan/generator_epoch_{load_model_index}.pth"))
+            self.discriminator.load_state_dict(torch.load(f"{save_dir}/gan/discriminator_epoch_{load_model_index}.pth"))
 
     def forward(self, x, z, seq_len):
         fake_x = self.generator(z, seq_len)
@@ -163,8 +166,8 @@ class AnomalyDetectionGAN(nn.Module):
                 f"Gen Loss: {g_loss.item():.6f}"
             )
 
-            torch.save(self.generator.state_dict(), f"{self.save_dir}/generator_epoch_{epoch}.pth")
-            torch.save(self.discriminator.state_dict(), f"{self.save_dir}/discriminator_epoch_{epoch}.pth")
+            torch.save(self.generator.state_dict(), f"{self.save_dir}/gan/generator_epoch_{epoch}.pth")
+            torch.save(self.discriminator.state_dict(), f"{self.save_dir}/gan/discriminator_epoch_{epoch}.pth")
     
     def predict(self, x):
         """

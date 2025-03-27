@@ -1,7 +1,8 @@
 {
     "train_data_path": "datasets/wadi/wadi_train.npy",
     "valid_data_path": "datasets/wadi/wadi_attack.npy",
-    "num_epochs": 10,
+    "num_epochs_gan": 10,
+    "num_epochs_autoencoder": 10,
     "seq_length": 30,
     "seq_step": 10,
     "num_signals": 8,
