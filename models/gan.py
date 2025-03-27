@@ -1,5 +1,6 @@
 import os
 import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -144,7 +145,7 @@ class AnomalyDetectionGAN(nn.Module):
                 d_loss.backward()
                 d_optimizer.step()
 
-                # Train Discriminator -----------------------------------------------------------------
+                # Train Generator ---------------------------------------------------------------------
                 self.generator.train()
 
                 # Generate new fake data
@@ -206,25 +207,29 @@ class AnomalyDetectionGAN(nn.Module):
         self.eval()
         all_scores = []
         all_labels = []
+        criterion = nn.BCELoss(reduction='none')
         
-        with torch.no_grad():
+        with torch.inference_mode():
             for batch in test_loader:
-                # Assume test_loader returns (data, labels)
                 data, labels = batch
-                data = data[0].to(self.device) if isinstance(data, list) else data.to(self.device)
+                data = data.to(self.device)
+                labels = labels.to(self.device).float()
                 
-                # Get discriminator predictions (probability of being real)
+                # Get discriminator predictions
                 preds = self.discriminator(data)
                 
-                # Convert to anomaly scores (1 - probability of being real)
-                scores = 1 - preds.cpu().numpy().flatten()
-                all_scores.extend(scores)
-                all_labels.extend(labels.numpy().flatten())
+                # Calculate BCE loss using TRUE labels
+                loss = criterion(preds.squeeze(), labels)
+                
+                # Store losses and labels
+                all_scores.extend(loss.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
         
         # Handle case with only one class present
         if len(np.unique(all_labels)) < 2:
-            raise ValueError("Labels must contain both normal (0) and anomalous (1) samples")
+            raise ValueError("Labels must contain both normal (1) and anomalous (0) samples")
         
+        # Calculate AUC (higher loss = more anomalous)
         return roc_auc_score(all_labels, all_scores)
 
 
