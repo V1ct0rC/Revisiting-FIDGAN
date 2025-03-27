@@ -5,10 +5,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, roc_curve
+from matplotlib import pyplot as plt
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class Generator(nn.Module):
     def __init__(self, latent_dim, hidden_units, num_layers, output_dim, device=device):
@@ -123,47 +124,41 @@ class AnomalyDetectionGAN(nn.Module):
             for batch_idx, real_data in enumerate(data_loader):
                 real_data = real_data[0].to(self.device)
                 batch_size = real_data.size(0)
- 
-                # Train Discriminator -----------------------------------------------------------------
-                self.discriminator.train()
 
                 # Generate noise
                 z = torch.randn(batch_size, seq_len, self.generator.latent_dim).to(self.device)
+ 
+                # Train Discriminator -----------------------------------------------------------------
+                self.discriminator.zero_grad()
 
                 # Get discriminator outputs
-                fake_data = self.generator(z)
                 real_pred = self.discriminator(real_data)
-                fake_pred = self.discriminator(fake_data.detach())
-
-                # Calculate losses
                 real_loss = criterion(real_pred, torch.ones_like(real_pred))  # Discriminator should predict 1 for real data
-                fake_loss = criterion(fake_pred, torch.zeros_like(fake_pred))  # Discriminator should predict 0 for fake data
-                d_loss = (real_loss + fake_loss) / 2
+                real_loss.backward()
 
-                d_optimizer.zero_grad()
-                # Backpropagation
-                d_loss.backward()
+                fake_data = self.generator(z)
+                fake_pred = self.discriminator(fake_data.detach())
+                fake_loss = criterion(fake_pred, torch.zeros_like(fake_pred))  # Discriminator should predict 0 for fake data
+                fake_loss.backward()
+
+                d_loss = (real_loss.item() + fake_loss.item()) / 2
                 d_optimizer.step()
 
                 # Train Generator ---------------------------------------------------------------------
-                self.generator.train()
+                self.generator.zero_grad()
 
-                # Generate new fake data
-                fake_data = self.generator(z)
                 fake_pred = self.discriminator(fake_data)
 
                 # Calculate generator loss (flipped labels)
                 g_loss = criterion(fake_pred, torch.ones_like(fake_pred))
-
-                g_optimizer.zero_grad()
-                # Backpropagation
                 g_loss.backward()
+
                 g_optimizer.step()
 
             # Print progress
             print(
                 f"[Epoch {epoch+1}/{num_epochs}] "
-                f"Disc Loss: {d_loss.item():.6f} "
+                f"Disc Loss: {d_loss:.6f} "
                 f"Gen Loss: {g_loss.item():.6f}"
             )
 
@@ -230,7 +225,27 @@ class AnomalyDetectionGAN(nn.Module):
             raise ValueError("Labels must contain both normal (1) and anomalous (0) samples")
         
         # Calculate AUC (higher loss = more anomalous)
-        return roc_auc_score(all_labels, all_scores)
+        fpr, tpr, _ = roc_curve(all_labels, all_scores)
+        auc_score = roc_auc_score(all_labels, all_scores)
+        
+        # Plot and save ROC curve
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic')
+        plt.legend(loc="lower right")
+        
+        # Ensure directory exists
+        save_auc_dir = os.path.join(self.save_dir, "metrics", "AUC")
+        os.makedirs(save_auc_dir, exist_ok=True)
+        plt.savefig(os.path.join(save_auc_dir, "Ld_roc_curve.png"))
+        plt.close()
+        
+        return auc_score
 
 
 if __name__ == "__main__":
