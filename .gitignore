@@ -1,7 +1,10 @@
 # Datasets
 *.npy
 datasets/wadi/WADI.A1_9 Oct 2017
+datasets/wadi/WADI.A2_19 Nov 2019
 datasets/swat/SWaT.A4 & A5_Jul 2019
+
+experiments/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
