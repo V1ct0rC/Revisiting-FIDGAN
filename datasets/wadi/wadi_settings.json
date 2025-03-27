@@ -1,0 +1,13 @@
+{
+    "data_path": "datasets/wadi/wadi_train.npy",
+    "num_epochs": 10,
+    "seq_length": 30,
+    "seq_step": 10,
+    "num_signals": 8,
+    "latent_dim": 15,
+    "hidden_units": 100,
+    "num_layers": 3,
+    "batch_size": 1000,
+    "learning_rate_gan": 0.0001,
+    "learning_rate_autoencoder": 0.001
+}

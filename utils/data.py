@@ -1,4 +1,7 @@
+import argparse
+import json
 import numpy as np
+
 from sklearn.decomposition import PCA
 
 
@@ -34,3 +37,19 @@ def load_dataset(data_path, seq_length, seq_step, num_signals):
         sequences.append(sequence)
         
     return np.array(sequences)
+
+
+def load_settings():
+    """
+    Load settings from the provided file.
+    """
+    parser = argparse.ArgumentParser(description="Run GAN and Autoencoder training.")
+    parser.add_argument("--settings", type=str, required=True, help="Path to the settings file (JSON)")
+    args = parser.parse_args()
+    file_path = args.settings
+
+    with open(file_path, "r") as f:
+        if file_path.endswith(".json"):
+            return json.load(f)
+        else:
+            raise ValueError("Unsupported file format.")

@@ -64,10 +64,13 @@ class Discriminator(nn.Module):
 
 
 class GAN(nn.Module):
-    def __init__(self, latent_dim, hidden_units, num_layers, input_dim, output_dim, device=device):
+    def __init__(self, latent_dim, hidden_units, num_layers, input_dim, output_dim, save_dir, device=device):
         super(GAN, self).__init__()
-        self.generator = Generator(latent_dim, hidden_units, num_layers, output_dim)
-        self.discriminator = Discriminator(input_dim, hidden_units, num_layers)
+        self.device = device
+        self.save_dir = save_dir
+
+        self.generator = Generator(latent_dim, hidden_units, num_layers, output_dim, device=self.device)
+        self.discriminator = Discriminator(input_dim, hidden_units, num_layers, device=self.device)
 
     def forward(self, x, z, seq_len):
         fake_x = self.generator(z, seq_len)
@@ -75,7 +78,7 @@ class GAN(nn.Module):
         real_pred = self.discriminator(x)
         return fake_x, fake_pred, real_pred
     
-    def fit(self, data_loader, seq_len, num_epochs=100, batch_size=1000, d_optimizer=None, g_optimizer=None, d_lr=0.001, g_lr=0.0002, criterion=None):
+    def fit(self, data_loader, seq_len, num_epochs=100, d_optimizer=None, g_optimizer=None, d_lr=0.001, g_lr=0.001, criterion=None):
         if d_optimizer is None:
             d_optimizer = optim.SGD(self.discriminator.parameters(), lr=d_lr)
         if g_optimizer is None:    
@@ -86,16 +89,14 @@ class GAN(nn.Module):
 
         for epoch in range(num_epochs):
             for batch_idx, real_data in enumerate(data_loader):
-                real_data = real_data.to(self.device)
+                real_data = real_data[0].to(self.device)
                 batch_size = real_data.size(0)
-
-                # ---------------------
-                #  Train Discriminator
-                # ---------------------
-                d_optimizer.zero_grad()
+ 
+                # Train Discriminator -----------------------------------------------------------------
+                self.discriminator.train()
 
                 # Generate noise
-                z = torch.randn(batch_size, seq_len, self.generator.latent_dim, device=self.device)
+                z = torch.randn(batch_size, seq_len, self.generator.latent_dim).to(self.device)
 
                 # Get discriminator outputs
                 fake_data = self.generator(z)
@@ -107,14 +108,13 @@ class GAN(nn.Module):
                 fake_loss = criterion(fake_pred, torch.zeros_like(fake_pred))
                 d_loss = (real_loss + fake_loss) / 2
 
+                d_optimizer.zero_grad()
                 # Backpropagation
                 d_loss.backward()
                 d_optimizer.step()
 
-                # -----------------
-                #  Train Generator
-                # -----------------
-                g_optimizer.zero_grad()
+                # Train Discriminator -----------------------------------------------------------------
+                self.generator.train()
 
                 # Generate new fake data
                 fake_data = self.generator(z)
@@ -123,18 +123,20 @@ class GAN(nn.Module):
                 # Calculate generator loss (flipped labels)
                 g_loss = criterion(fake_pred, torch.ones_like(fake_pred))
 
+                g_optimizer.zero_grad()
                 # Backpropagation
                 g_loss.backward()
                 g_optimizer.step()
 
-                # Print progress
-                if batch_idx % 50 == 0:
-                    print(
-                        f"[Epoch {epoch+1}/{num_epochs}] "
-                        f"[Batch {batch_idx}/{len(data_loader)}] "
-                        f"D Loss: {d_loss.item():.4f} "
-                        f"G Loss: {g_loss.item():.4f}"
-                    )
+            # Print progress
+            print(
+                f"[Epoch {epoch+1}/{num_epochs}] "
+                f"Disc Loss: {d_loss.item():.6f} "
+                f"Gen Loss: {g_loss.item():.6f}"
+            )
+
+            torch.save(self.generator.state_dict(), f"{self.save_dir}/generator_epoch_{epoch}.pth")
+            torch.save(self.discriminator.state_dict(), f"{self.save_dir}/discriminator_epoch_{epoch}.pth")
 
 
 if __name__ == "__main__":
