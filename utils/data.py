@@ -3,9 +3,10 @@ import json
 import numpy as np
 
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import MinMaxScaler
 
 
-def load_dataset(data_path, seq_length, seq_step, num_signals):
+def load_dataset(data_path, seq_length, seq_step, num_signals, normalize=False):
     """
     Process pre-normalized time series data into sequences with PCA dimensionality reduction"
 
@@ -25,10 +26,18 @@ def load_dataset(data_path, seq_length, seq_step, num_signals):
     # Verify input dimensions
     if len(dataset.shape) != 2:
         raise ValueError("Dataset should be 2D array of shape (time_steps, features)")
-        
+    
+    if normalize:
+        # Normalize the dataset
+        scaler = MinMaxScaler()
+        dataset = scaler.fit_transform(dataset)
+
     # Apply PCA for dimensionality reduction
     pca = PCA(n_components=num_signals, svd_solver='full')
     reduced_data = pca.fit_transform(dataset)
+
+    print(f'Max pca: {np.max(reduced_data)}, Min pca: {np.min(reduced_data)}')
+    print(f'Max dataset: {np.max(dataset)}, Min dataset: {np.min(dataset)}')
     
     # Create sliding window sequences
     sequences = []
@@ -42,7 +51,7 @@ def load_dataset(data_path, seq_length, seq_step, num_signals):
     return np.array(sequences)
 
 
-def load_labeled_dataset(data_path, seq_length, seq_step, num_signals):
+def load_labeled_dataset(data_path, seq_length, seq_step, num_signals, normalize=False):
     """
     Process pre-normalized time series data into sequences with PCA dimensionality reduction
 
@@ -65,10 +74,18 @@ def load_labeled_dataset(data_path, seq_length, seq_step, num_signals):
     
     samples = dataset[:, :-1]
     labels = dataset[:, -1]
+
+    if normalize:
+        # Normalize the dataset
+        scaler = MinMaxScaler()
+        samples = scaler.fit_transform(samples)
         
     # Apply PCA for dimensionality reduction
     pca = PCA(n_components=num_signals, svd_solver='full')
     reduced_data = pca.fit_transform(samples)
+
+    print(f'Max pca: {np.max(reduced_data)}, Min pca: {np.min(reduced_data)}')
+    print(f'Max dataset: {np.max(samples)}, Min dataset: {np.min(samples)}')
     
     # Create sliding window sequences and corresponding labels
     sequences = []

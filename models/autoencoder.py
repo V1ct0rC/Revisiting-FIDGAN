@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import auc, roc_auc_score, roc_curve
 from matplotlib import pyplot as plt
 
 from models.gan import Generator
@@ -29,9 +29,6 @@ class Encoder(nn.Module):
             batch_first=True
         )
         self.linear = nn.Linear(hidden_units, latent_dim)
-        self.num_layers = num_layers
-        self.hidden_units = hidden_units
-        self.device = device
 
     def forward(self, x):
         lstm_out, _ = self.lstm(x)  # Shape: (batch_size, seq_len, hidden_units)
@@ -59,7 +56,7 @@ class AnomalyDetectionAutoencoder(nn.Module):
         z = self.encoder(x)
         return self.decoder(z)
     
-    def fit(self, data_loader, num_epochs=300, optimizer=None, lr=0.001, criterion=None):
+    def fit(self, data_loader, num_epochs=300, optimizer=None, lr=0.01, criterion=None):
         """
         Train the autoencoder (encoder only) with frozen decoder
         
@@ -69,8 +66,8 @@ class AnomalyDetectionAutoencoder(nn.Module):
             lr (float): Learning rate for encoder
         """
         # Freeze decoder completely
-        # for param in self.decoder.parameters():
-        #     param.requires_grad = False
+        for param in self.decoder.parameters():
+            param.requires_grad = False
 
         # Initialize optimizer and loss
         if optimizer is None:
@@ -140,25 +137,8 @@ class AnomalyDetectionAutoencoder(nn.Module):
             raise ValueError("Labels must contain both normal (1) and anomalous (0) samples")
         
         # Calculate AUC (higher MSE = more anomalous)
-        fpr, tpr, _ = roc_curve(all_labels, all_scores)
-        auc_score = roc_auc_score(all_labels, all_scores)
-        
-        # Plot and save ROC curve
-        plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color='darkorange', lw=2, 
-                 label=f'ROC curve (AUC = {auc_score:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic - Autoencoder')
-        plt.legend(loc="lower right")
-        
-        # Create save directory
-        save_auc_dir = os.path.join(self.save_dir, "metrics", "AUC")
-        os.makedirs(save_auc_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_auc_dir, "Lr_roc_curve.png"))
-        plt.close()
+        fpr, tpr, _ = roc_curve(all_labels, all_scores, pos_label=0)
+        # auc_score = roc_auc_score(all_labels, all_scores)
+        auc_score = auc(fpr, tpr)
         
         return auc_score

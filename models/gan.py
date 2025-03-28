@@ -4,8 +4,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.init as init
 
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import auc, roc_auc_score, roc_curve
 from matplotlib import pyplot as plt
 
 
@@ -32,6 +33,20 @@ class Generator(nn.Module):
         self.linear = nn.Linear(hidden_units, output_dim)
         self.tanh = nn.Tanh()
 
+        # Initialize weights
+        self.apply(self._initialize_weights)
+
+    def _initialize_weights(self, m):
+        if isinstance(m, nn.LSTM):
+            for name, param in m.named_parameters():
+                if 'weight' in name:
+                    init.trunc_normal_(param, mean=0.0, std=0.02, a=-0.04, b=0.04)  # Truncated normal
+                elif 'bias' in name:
+                    init.constant_(param, 0)  # Initialize biases to zero
+        elif isinstance(m, nn.Linear):
+            init.trunc_normal_(m.weight, mean=0.0, std=0.02, a=-0.04, b=0.04)
+            init.constant_(m.bias, 0)
+
     def forward(self, z):
         batch_size, seq_len = z.size(0), z.size(1)
 
@@ -41,7 +56,8 @@ class Generator(nn.Module):
 
         lstm_out, _ = self.lstm(z, (h, c))
         output = self.linear(lstm_out)
-        return self.tanh(output)
+        # return self.tanh(output)
+        return output
 
 
 class Discriminator(nn.Module):
@@ -61,6 +77,20 @@ class Discriminator(nn.Module):
 
         self.linear = nn.Linear(hidden_units, 1)
         self.sigmoid = nn.Sigmoid()
+
+        # Initialize weights
+        self.apply(self._initialize_weights)
+
+    def _initialize_weights(self, m):
+        if isinstance(m, nn.LSTM):
+            for name, param in m.named_parameters():
+                if 'weight' in name:
+                    init.xavier_uniform_(param)  # Xavier initialization
+                elif 'bias' in name:
+                    init.constant_(param, 0)  # Initialize biases to zero
+        elif isinstance(m, nn.Linear):
+            init.xavier_uniform_(m.weight)
+            init.constant_(m.bias, 0)
 
     def forward(self, x):
         batch_size, seq_len = x.size(0), x.size(1)
@@ -231,25 +261,9 @@ class AnomalyDetectionGAN(nn.Module):
             raise ValueError("Labels must contain both normal (1) and anomalous (0) samples")
         
         # Calculate AUC (higher loss = more anomalous)
-        fpr, tpr, _ = roc_curve(all_labels, all_scores)
-        auc_score = roc_auc_score(all_labels, all_scores)
-        
-        # Plot and save ROC curve
-        plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic')
-        plt.legend(loc="lower right")
-        
-        # Ensure directory exists
-        save_auc_dir = os.path.join(self.save_dir, "metrics", "AUC")
-        os.makedirs(save_auc_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_auc_dir, "Ld_roc_curve.png"))
-        plt.close()
+        fpr, tpr, _ = roc_curve(all_labels, all_scores, pos_label=0)
+        # auc_score = roc_auc_score(all_labels, all_scores)
+        auc_score = auc(fpr, tpr)
         
         return auc_score
 
