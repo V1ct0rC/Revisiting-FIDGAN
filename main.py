@@ -53,6 +53,7 @@ if __name__ == "__main__":
     
     # Load the data -------------------------------------------------------------------------------
     print("-"*100 + "\n" + "Loading data")
+
     sequences_train = load_dataset(
         data_path=train_data_path,
         seq_length=seq_length,

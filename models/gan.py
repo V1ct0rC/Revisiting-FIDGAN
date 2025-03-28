@@ -36,10 +36,10 @@ class Generator(nn.Module):
         batch_size, seq_len = z.size(0), z.size(1)
 
         # Initialize hidden state TODO: Check if this is necessary
-        # h = torch.zeros(self.num_layers, batch_size, self.hidden_units).to(self.device)
-        # c = torch.zeros(self.num_layers, batch_size, self.hidden_units).to(self.device)
+        h = torch.zeros(self.num_layers, batch_size, self.hidden_units).to(self.device)
+        c = torch.zeros(self.num_layers, batch_size, self.hidden_units).to(self.device)
 
-        lstm_out, _ = self.lstm(z)
+        lstm_out, _ = self.lstm(z, (h, c))
         output = self.linear(lstm_out)
         return self.tanh(output)
 
@@ -63,9 +63,15 @@ class Discriminator(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        lstm_out, _ = self.lstm(x)
-        last_out = lstm_out[:, -1, :]  # Use the last time step's output
-        output = self.linear(last_out)
+        batch_size, seq_len = x.size(0), x.size(1)
+
+        # Initialize hidden state TODO: Check if this is necessary
+        h = torch.zeros(self.num_layers, batch_size, self.hidden_units).to(self.device)
+        c = torch.zeros(self.num_layers, batch_size, self.hidden_units).to(self.device)
+
+        lstm_out, _ = self.lstm(x, (h, c))
+        last_step = lstm_out[:, -1, :]  # Take the last time step's output
+        output = self.linear(last_step)
         return self.sigmoid(output)
     
     def predict(self, x):
@@ -92,8 +98,8 @@ class AnomalyDetectionGAN(nn.Module):
             self.generator.load_state_dict(torch.load(f"{save_dir}/gan/generator_epoch_{load_model_index}.pth"))
             self.discriminator.load_state_dict(torch.load(f"{save_dir}/gan/discriminator_epoch_{load_model_index}.pth"))
 
-    def forward(self, x, z, seq_len):
-        fake_x = self.generator(z, seq_len)
+    def forward(self, x, z):
+        fake_x = self.generator(z)
         fake_pred = self.discriminator(fake_x)
         real_pred = self.discriminator(x)
         return fake_x, fake_pred, real_pred
@@ -134,14 +140,14 @@ class AnomalyDetectionGAN(nn.Module):
                 # Get discriminator outputs
                 real_pred = self.discriminator(real_data)
                 real_loss = criterion(real_pred, torch.ones_like(real_pred))  # Discriminator should predict 1 for real data
-                real_loss.backward()
 
                 fake_data = self.generator(z)
                 fake_pred = self.discriminator(fake_data.detach())
                 fake_loss = criterion(fake_pred, torch.zeros_like(fake_pred))  # Discriminator should predict 0 for fake data
-                fake_loss.backward()
 
-                d_loss = (real_loss.item() + fake_loss.item()) / 2
+                d_loss = (real_loss + fake_loss) / 2
+                d_loss.backward(retain_graph=True)
+
                 d_optimizer.step()
 
                 # Train Generator ---------------------------------------------------------------------
@@ -158,7 +164,7 @@ class AnomalyDetectionGAN(nn.Module):
             # Print progress
             print(
                 f"[Epoch {epoch+1}/{num_epochs}] "
-                f"Disc Loss: {d_loss:.6f} "
+                f"Disc Loss: {d_loss.item():.6f} "
                 f"Gen Loss: {g_loss.item():.6f}"
             )
 

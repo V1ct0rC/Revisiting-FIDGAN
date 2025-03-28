@@ -34,9 +34,9 @@ class Encoder(nn.Module):
         self.device = device
 
     def forward(self, x):
-        _, (h_n, _) = self.lstm(x)
-        last_hidden = h_n[-1]  # Get final hidden state from last layer
-        return self.linear(last_hidden)
+        lstm_out, _ = self.lstm(x)  # Shape: (batch_size, seq_len, hidden_units)
+        latent_seq = self.linear(lstm_out)  # Shape: (batch_size, seq_len, latent_dim)
+        return latent_seq
 
 
 class AnomalyDetectionAutoencoder(nn.Module):
@@ -57,9 +57,7 @@ class AnomalyDetectionAutoencoder(nn.Module):
 
     def forward(self, x):
         z = self.encoder(x)
-        # Expand latent vector to match decoder's expected sequence length
-        z_seq = z.unsqueeze(1).repeat(1, x.size(1), 1)  # (batch, seq_len, latent_dim)
-        return self.decoder(z_seq)
+        return self.decoder(z)
     
     def fit(self, data_loader, num_epochs=300, optimizer=None, lr=0.001, criterion=None):
         """
@@ -71,8 +69,8 @@ class AnomalyDetectionAutoencoder(nn.Module):
             lr (float): Learning rate for encoder
         """
         # Freeze decoder completely
-        for param in self.decoder.parameters():
-            param.requires_grad = False
+        # for param in self.decoder.parameters():
+        #     param.requires_grad = False
 
         # Initialize optimizer and loss
         if optimizer is None:
