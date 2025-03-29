@@ -87,8 +87,8 @@ if __name__ == "__main__":
         drop_last=True
     )
 
-    # # Initialize and train the GAN model ----------------------------------------------------------
-    # print("-"*100 + "\n" + "Training GAN")
+    # Initialize and train the GAN model ----------------------------------------------------------
+    print("-"*100 + "\n" + "Training GAN")
 
     # gan = AnomalyDetectionGAN(
     #     latent_dim=latent_dim, hidden_units=hidden_units, num_layers=num_layers,
@@ -100,25 +100,25 @@ if __name__ == "__main__":
     #     num_epochs=num_epochs, d_lr=learning_rate_gan, g_lr=learning_rate_gan
     # )    
 
-    # # Evaluate the GAN models ---------------------------------------------------------------------
-    # print("-"*100 + "\n" + "Evaluating GAN")
+    # Evaluate the GAN models ---------------------------------------------------------------------
+    print("-"*100 + "\n" + "Evaluating GAN")
     
-    # auc_scores_only_Ld = []
-    # for epoch in range(num_epochs):
-    #     gan = AnomalyDetectionGAN(
-    #         latent_dim=latent_dim, hidden_units=hidden_units, num_layers=num_layers,
-    #         input_dim=num_signals, output_dim=num_signals, save_dir=save_dir_run,
-    #         device=device, load_model_index=epoch
-    #     ).to(device)
-    #     auc = gan.evaluate(valid_loader)
-    #     auc_scores_only_Ld.append(auc)
+    auc_scores_only_Ld = []
+    for epoch in range(num_epochs):
+        gan = AnomalyDetectionGAN(
+            latent_dim=latent_dim, hidden_units=hidden_units, num_layers=num_layers,
+            input_dim=num_signals, output_dim=num_signals, save_dir=save_dir_run,
+            device=device, load_model_index=epoch
+        ).to(device)
+        auc = gan.evaluate(valid_loader)
+        auc_scores_only_Ld.append(auc)
 
-    # best_gan_epopch = np.argmax(auc_scores_only_Ld)
-    # print(f"AUC scores: {auc_scores_only_Ld}")
-    # print(f"Best GAN epoch: {best_gan_epopch}")
+    best_gan_epopch = np.argmax(auc_scores_only_Ld)
+    print(f"AUC scores: {auc_scores_only_Ld}")
+    print(f"Best GAN epoch: {best_gan_epopch}")
 
-    # # Initialize and train the autoencoder model --------------------------------------------------
-    # print("-"*100 + "\n" + "Training Autoencoder")
+    # Initialize and train the autoencoder model --------------------------------------------------
+    print("-"*100 + "\n" + "Training Autoencoder")
 
     # autoencoder = AnomalyDetectionAutoencoder(
     #     input_dim=num_signals, hidden_units=hidden_units, num_layers=num_layers,
@@ -128,22 +128,22 @@ if __name__ == "__main__":
     #     train_loader, num_epochs=num_epochs_autoencoder, lr=learning_rate_autoencoder
     # )
 
-    # # Evaluate the autoencoder model --------------------------------------------------------------
-    # print("-"*100 + "\n" + "Evaluating Autoencoder")
+    # Evaluate the autoencoder model --------------------------------------------------------------
+    print("-"*100 + "\n" + "Evaluating Autoencoder")
 
-    # auc_scores_only_Lr = []
-    # for epoch in range(num_epochs_autoencoder):
-    #     autoencoder = AnomalyDetectionAutoencoder(
-    #         input_dim=num_signals, hidden_units=hidden_units, num_layers=num_layers,
-    #         latent_dim=latent_dim, save_dir=save_dir_run, device=device, 
-    #         load_decoder_index=best_gan_epopch, load_encoder_index=epoch
-    #     ).to(device)
-    #     auc = autoencoder.evaluate(valid_loader)
-    #     auc_scores_only_Lr.append(auc)
+    auc_scores_only_Lr = []
+    for epoch in range(num_epochs_autoencoder):
+        autoencoder = AnomalyDetectionAutoencoder(
+            input_dim=num_signals, hidden_units=hidden_units, num_layers=num_layers,
+            latent_dim=latent_dim, save_dir=save_dir_run, device=device, 
+            load_decoder_index=best_gan_epopch, load_encoder_index=epoch
+        ).to(device)
+        auc = autoencoder.evaluate(valid_loader)
+        auc_scores_only_Lr.append(auc)
 
-    # best_autoencoder_epoch = np.argmax(auc_scores_only_Lr)
-    # print(f"AUC scores: {auc_scores_only_Lr}")
-    # print(f"Best Autoencoder epoch: {best_autoencoder_epoch}")
+    best_autoencoder_epoch = np.argmax(auc_scores_only_Lr)
+    print(f"AUC scores: {auc_scores_only_Lr}")
+    print(f"Best Autoencoder epoch: {best_autoencoder_epoch}")
 
     # Initialize FIDGAN model ---------------------------------------------------------------------
     print("-"*100 + "\n" + "Setting up FIDGAN")
@@ -151,21 +151,21 @@ if __name__ == "__main__":
     fidgan = FIDGAN(
         input_dim_encoder=num_signals, hidden_units=hidden_units, num_layers=num_layers,
         latent_dim=latent_dim, output_dim_generator=num_signals, device=device,
-        save_dir=save_dir_run, load_generator_index=99, load_discriminator_index=99,
-        load_encoder_index=146
+        save_dir=save_dir_run, load_generator_index=best_gan_epopch, load_discriminator_index=best_gan_epopch,
+        load_encoder_index=best_autoencoder_epoch
     ).to(device)
 
     # Evaluate the FIDGAN model --------------------------------------------------------------------
     print("-"*100 + "\n" + "Evaluating FIDGAN")
 
     best_fidgan_auc = 0
-    best_tau = 0.81
-    # for i in range(100):
-    #     fidgan_auc = fidgan.evaluate(valid_loader, tau=i/100)
-    #     print(f"FIDGAN AUC for tau={i/100}: {fidgan_auc}")
-    #     if fidgan_auc > best_fidgan_auc:
-    #         best_fidgan_auc = fidgan_auc
-    #         best_tau = i/100
+    best_tau = 0
+    for i in range(101):
+        fidgan_auc = fidgan.evaluate(valid_loader, tau=i/100)
+        print(f"FIDGAN AUC for tau={i/100}: {fidgan_auc}")
+        if fidgan_auc > best_fidgan_auc:
+            best_fidgan_auc = fidgan_auc
+            best_tau = i/100
 
     print("-"*100 + "\n" + "Best FIDGAN results")
     print(f"Best tau: {best_tau}")
