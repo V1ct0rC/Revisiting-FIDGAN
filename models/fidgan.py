@@ -62,6 +62,30 @@ class FIDGAN(nn.Module):
         if np.max(arr) - np.min(arr) == 0:
             return np.zeros_like(arr)
         return (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+    
+    def _reduction(self, fpr, tpr):
+        """
+        Reduce the number of points in the ROC curve to avoid overplotting.
+
+        parameters:
+            fpr (np.ndarray): False positive rates
+            tpr (np.ndarray): True positive rates
+
+        returns:
+            list: Reduced false positive rates
+            list: Reduced true positive rates
+        """
+        fpr2 = []
+        tpr2 = []
+        fpr2.append(fpr[0])
+        tpr2.append(tpr[0])
+        for i in range(1, fpr.size):
+            d = pow(( pow(fpr2[-1] - fpr[i], 2) + pow(tpr2[-1] - tpr[i], 2) ), 0.5)
+            if( d > 0.07 ):
+                fpr2.append(fpr[i])
+                tpr2.append(tpr[i])
+        
+        return fpr2, tpr2
 
     def evaluate(self, test_loader, tau=0.99):
         """
@@ -115,11 +139,13 @@ class FIDGAN(nn.Module):
         # Calculate AUC for the discriminator scores only
         fpr_ld, tpr_ld, _ = roc_curve(all_labels, all_disc_scores, pos_label=0)
         auc_score_ld = auc(fpr_ld, tpr_ld)
+
+        fpr_ld2, tpr_ld2 = self._reduction(fpr_ld, tpr_ld)
         
         # Plot and save ROC curve
         plt.figure(figsize=(8, 6))
-        plt.plot(fpr_ld, tpr_ld, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score_ld:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.plot(fpr_ld2, tpr_ld2, lw=2, label=f'ROC curve (AUC = {auc_score_ld:.2f})', linestyle=':', marker='o', color='r', markersize = 6)
+        plt.plot([0, 1], [0, 1], 'k--')
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate')
@@ -134,12 +160,14 @@ class FIDGAN(nn.Module):
         plt.close()
 
         # Calculate AUC for the reconstruction scores only
-        fpr_recon, tpr_recon, _ = roc_curve(all_labels, all_recon_scores, pos_label=0)
-        auc_score_lr = auc(fpr_recon, tpr_recon)
+        fpr_lr, tpr_lr, _ = roc_curve(all_labels, all_recon_scores, pos_label=0)
+        auc_score_lr = auc(fpr_lr, tpr_lr)
+
+        fpr_lr2, tpr_lr2 = self._reduction(fpr_lr, tpr_lr)
 
         plt.figure(figsize=(8, 6))
-        plt.plot(fpr_recon, tpr_recon, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score_lr:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.plot(fpr_lr2, tpr_lr2, lw=2, label=f'ROC curve (AUC = {auc_score_lr:.2f})', linestyle='-.', marker='s', color='g', markersize = 7)
+        plt.plot([0, 1], [0, 1], 'k--')
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate')
@@ -158,9 +186,11 @@ class FIDGAN(nn.Module):
         # auc_score = roc_auc_score(all_labels, all_scores)
         auc_score = auc(fpr, tpr)
 
+        fpr2, tpr2 = self._reduction(fpr, tpr)
+
         plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {auc_score:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.plot(fpr2, tpr2, lw=2, label=f'ROC curve (AUC = {auc_score:.2f})', linestyle='--', marker='^', color='b', markersize = 6)
+        plt.plot([0, 1], [0, 1], 'k--')
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate')
